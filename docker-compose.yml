@@ -1,0 +1,23 @@
+services:
+  ansible:
+    build:
+      context: .
+      dockerfile: .docker/ansible/Dockerfile
+    container_name: ansible
+    tty: true
+    volumes:
+      - .:/ansible-workshop
+    working_dir: /ansible-workshop
+    networks:
+      - default
+
+  webserver:
+    build:
+      context: .
+      dockerfile: .docker/webserver/Dockerfile
+    container_name: webserver
+    tty: true
+    ports:
+      - "2222:22"
+    networks:
+      - default
