@@ -1,0 +1,28 @@
+---
+- hosts: webservers
+  tasks:
+
+    # Example: (Wrong) Adds the timestamp on every run (breaks idempotency)
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/shell_module.html
+    - name: Set provisioned at (wrong)
+      ansible.builtin.shell: 'echo "Provisioned at $(date --iso-8601=seconds)" >> /tmp/provisioned_at'
+      tags:
+        - wrong
+
+    # Example (Correct) Adds the timestamp once
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/lineinfile_module.html
+    - name: Set provisioned at (correct)
+      ansible.builtin.lineinfile:
+        path: "/tmp/provisioned_at"
+        line: "Provisioned at {{ lookup('pipe', 'date --iso-8601=seconds') }}"
+        create: yes
+        tags:
+          - correct
+
+    # Example: Debug a variable
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/debug_module.html
+    - name: Debug a variable
+      ansible.builtin.debug:
+        var: "packages_present"
+      tags:
+        - debug

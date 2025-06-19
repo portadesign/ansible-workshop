@@ -1,0 +1,107 @@
+---
+- hosts: webservers
+  # become: yes
+  pre_tasks:
+
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/apt_module.html
+    - name: Update software packages
+      ansible.builtin.apt:
+        upgrade: yes
+        update_cache: yes
+        cache_valid_time: 86400
+      tags:
+        - software-packages
+
+    - name: Ensure software packages are installed
+      ansible.builtin.apt:
+        name: "{{ packages_present }}"
+        state: present
+      tags:
+        - software-packages
+
+  roles:
+    - role: geerlingguy.ntp
+      tags:
+        - time
+
+    - role: geerlingguy.php-versions
+      tags:
+        - php
+
+    - role: geerlingguy.php
+      tags:
+        - php
+
+    - role: geerlingguy.composer
+      tags:
+        - composer
+
+    - role: geerlingguy.apache
+      tags:
+        - apache
+
+    - role: geerlingguy.apache-php-fpm
+      tags:
+        - php
+
+    - role: geerlingguy.mysql
+      tags:
+        - database
+
+  tasks:
+
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/hostname_module.html
+    - name: Ensure hostname is set
+      ansible.builtin.hostname:
+        name: "{{ hostname }}"
+
+    # https://docs.ansible.com/ansible/latest/collections/community/general/locale_gen_module.html
+    - name: Ensure locale is set
+      community.general.locale_gen:
+        name: "{{ locale }}"
+        state: present
+
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html
+    - name: Ensure sudo user exists
+      ansible.builtin.user:
+        name: "{{ sudo_user_name }}"
+        password: "{{ sudo_user_password_hash }}"
+        groups: "sudo"
+        create_home: true
+      tags:
+        - users
+
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/file_module.html
+    - name: Ensure /etc/sudoers.d directory exists
+      ansible.builtin.file:
+        path: /etc/sudoers.d
+        state: directory
+        mode: '0750'
+
+    - name: Ensure no password sudo is configured for the sudo user
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/{{ sudo_user_name }}"
+        content: "{{ sudo_user_name }} ALL=(ALL) NOPASSWD:ALL"
+        mode: '0440'
+      tags:
+        - users
+
+    - name: User to the webserver user group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: "{{ apache_user_name }}"
+        append: yes
+
+    - name: Webserver to the sudo user group
+      ansible.builtin.user:
+        name: "{{ apache_user_name }}"
+        groups: "{{ sudo_user_name }}"
+        append: yes
+
+    - name: Put index.php to the Apache document root
+      ansible.builtin.copy:
+        src: "files/index.php"
+        dest: "{{ apache_document_root }}/index.php"
+        owner: "{{ apache_user_name }}"
+        group: "{{ apache_user_name }}"
+        mode: '0644'

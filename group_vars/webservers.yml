@@ -1,0 +1,120 @@
+---
+locale: "en_US.UTF-8"
+server_admin_email: "development@portadesign.cz"
+
+packages_present:
+  - curl
+  - htop
+  - locales
+  - util-linux-extra
+  - vim
+
+# Ansible requires the user password to already be encrypted with SHA-512, see: https://docs.ansible.com/ansible/latest/reference_appendices/faq.html#how-do-i-generate-encrypted-passwords-for-the-user-module
+# The password is "porta"
+sudo_user_name: "porta"
+sudo_user_password_hash: "$6$rounds=656000$porta$hLjDG.LOcv5gW1av1EKZEN6o6Z90r5o22q6qYtIStgcr4NheM/tyAd0knWgAw0d8y1LVOdKrVywH51vD7cnA80"
+apache_user_name: "www-data"
+
+# https://github.com/geerlingguy/ansible-role-ntp
+ntp_timezone: Europe/Prague
+ntp_manage_config: yes
+ntp_area: europe
+ntp_cron_handler_enabled: yes
+
+# https://github.com/geerlingguy/ansible-role-apache
+apache_document_root: "/var/www/html"
+apache_listen_ip: "*"
+apache_listen_port: 80
+apache_create_vhosts: yes
+apache_remove_default_vhost: yes
+apache_mods_enabled:
+  - rewrite
+  - ssl
+  - headers
+  - proxy
+  - proxy_http
+
+apache_vhosts:
+  - servername: "webserver.local"
+    documentroot: "{{ apache_document_root }}"
+    extra_parameters: |
+      ProxyPassMatch ^/(.*\.php(/.*)?)$ "fcgi://127.0.0.1:9000{{ apache_document_root }}"
+
+# https://github.com/geerlingguy/ansible-role-php-versions
+php_version: '8.4'
+
+# https://github.com/geerlingguy/ansible-role-php
+php_webserver_daemon: "apache2"
+php_memory_limit: "256M"
+php_post_max_size: "64M"
+php_upload_max_filesize: "64M"
+php_date_timezone: "Europe/Prague"
+php_packages_extra:
+  - php8.4-bcmath
+  - php8.4-bz2
+  - php8.4-curl
+  - php8.4-dev
+  - php8.4-gd
+  - php8.4-imagick
+  - php8.4-intl
+  - php8.4-iconv
+  - php8.4-mbstring
+  - php8.4-mysql
+  - php8.4-redis
+  - php8.4-soap
+  - php8.4-xml
+  - php8.4-zip
+
+# https://github.com/geerlingguy/ansible-role-apache-php-fpm
+# Note the "php_fpm_pools" is an array, so the whole "template" has to be copied over
+php_enable_php_fpm: yes # https://www.php.net/manual/en/install.fpm.configuration.php
+php_fpm_pools:
+  - pool_name: www
+    pool_template: www.conf.j2
+    pool_listen: "127.0.0.1:9000"
+    pool_listen_allowed_clients: "127.0.0.1"
+    pool_pm: dynamic
+    pool_pm_max_children: 64
+    pool_pm_start_servers: 16
+    pool_pm_min_spare_servers: 8
+    pool_pm_max_spare_servers: 32
+    pool_pm_max_requests: 512
+    pool_pm_status_path: /status
+
+# https://github.com/geerlingguy/ansible-role-mysql
+# The password is "root"
+mysql_root_password: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  62306662653533626561323466326234613934363261373362373036623233376338653830396331
+  3464623935646533336534653632636437343235393766350a376434353738336230633136646230
+  64336639646338353034626239623061646563363662313538633461633139636336666537383832
+  6338373934343365620a333265666464346362623364316561356563356366613864373165633338
+  3831
+mysql_root_password_update: true
+mysql_enabled_on_startup: true
+mysql_disable_log_bin: true
+mysql_skip_name_resolve: true
+mysql_port: "3306"
+mysql_bind_address: "0.0.0.0"
+mysql_max_connections: "128"
+
+mysql_databases:
+  - name: webserver
+    encoding: utf8mb4
+    collation: utf8mb4_general_ci
+    replication: no
+    state: present
+
+# The password is "webserver"
+mysql_users:
+  - name: webserver
+    host: "%"
+    password: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      31343831643266373765353839653434643837663033643735343336653936326466346339656337
+      6465376435343232343930386232653863333439323564340a623031666163633664663937326332
+      33633938343236666339643264356232326565376664613437666364633765313935393633356635
+      3834323930306332660a303962633533396335343734366164383066626565316436343635643334
+      6266
+    priv: "webserver.*:ALL"
+    state: present

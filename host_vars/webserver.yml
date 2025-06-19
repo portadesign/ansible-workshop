@@ -1,0 +1,6 @@
+---
+hostname: "webserver"
+
+# Warning, this overrides "packages_present" set in "group_vars"!
+#packages_present:
+# - ncdu
